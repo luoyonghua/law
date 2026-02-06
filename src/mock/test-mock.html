@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mock API 测试</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .test-section {
+        margin-bottom: 30px;
+        padding: 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 5px;
+      }
+      .test-section h3 {
+        margin-top: 0;
+        color: #333;
+      }
+      button {
+        background: #409eff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      button:hover {
+        background: #66b1ff;
+      }
+      .result {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 10px;
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .success {
+        border-color: #28a745;
+        background-color: #d4edda;
+      }
+      .error {
+        border-color: #dc3545;
+        background-color: #f8d7da;
+      }
+      input {
+        padding: 5px;
+        margin: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Mock API 测试页面</h1>
+      <p>这个页面用于测试本地 Mock API 是否正常工作</p>
+
+      <!-- 登录测试 -->
+      <div class="test-section">
+        <h3>🔐 登录测试</h3>
+        <div>
+          <input type="text" id="username" placeholder="用户名" value="Super" />
+          <input type="password" id="password" placeholder="密码" value="123456" />
+          <button onclick="testLogin()">测试登录</button>
+        </div>
+        <div id="loginResult" class="result"></div>
+      </div>
+
+      <!-- 用户信息测试 -->
+      <div class="test-section">
+        <h3>👤 用户信息测试</h3>
+        <button onclick="testUserInfo()">获取用户信息</button>
+        <div id="userInfoResult" class="result"></div>
+      </div>
+
+      <!-- 用户列表测试 -->
+      <div class="test-section">
+        <h3>📋 用户列表测试</h3>
+        <div>
+          <input type="number" id="current" placeholder="页码" value="1" min="1" />
+          <input type="number" id="size" placeholder="每页条数" value="10" min="1" />
+          <input type="text" id="searchUser" placeholder="搜索用户名" />
+          <button onclick="testUserList()">获取用户列表</button>
+        </div>
+        <div id="userListResult" class="result"></div>
+      </div>
+
+      <!-- 角色列表测试 -->
+      <div class="test-section">
+        <h3>🎭 角色列表测试</h3>
+        <div>
+          <input type="number" id="roleCurrent" placeholder="页码" value="1" min="1" />
+          <input type="number" id="roleSize" placeholder="每页条数" value="5" min="1" />
+          <button onclick="testRoleList()">获取角色列表</button>
+        </div>
+        <div id="roleListResult" class="result"></div>
+      </div>
+
+      <!-- 仪表盘数据测试 -->
+      <div class="test-section">
+        <h3>📊 仪表盘数据测试</h3>
+        <button onclick="testDashboardStats()">获取统计数据</button>
+        <button onclick="testDashboardActivities()">获取活动记录</button>
+        <button onclick="testDashboardTodos()">获取待办事项</button>
+        <div id="dashboardResult" class="result"></div>
+      </div>
+    </div>
+
+    <script>
+      let currentToken = ''
+
+      // 通用请求函数
+      async function makeRequest(url, options = {}) {
+        const defaultOptions = {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(currentToken && { Authorization: currentToken })
+          }
+        }
+
+        const finalOptions = {
+          ...defaultOptions,
+          ...options,
+          headers: {
+            ...defaultOptions.headers,
+            ...options.headers
+          }
+        }
+
+        try {
+          const response = await fetch(url, finalOptions)
+          const data = await response.json()
+          return { success: true, data, status: response.status }
+        } catch (error) {
+          return { success: false, error: error.message }
+        }
+      }
+
+      // 显示结果
+      function showResult(elementId, result, isSuccess = true) {
+        const element = document.getElementById(elementId)
+        element.textContent = JSON.stringify(result, null, 2)
+        element.className = `result ${isSuccess ? 'success' : 'error'}`
+      }
+
+      // 测试登录
+      async function testLogin() {
+        const username = document.getElementById('username').value
+        const password = document.getElementById('password').value
+
+        const result = await makeRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ userName: username, password })
+        })
+
+        if (result.success && result.data.code === 200) {
+          currentToken = result.data.data.token
+          showResult('loginResult', result.data, true)
+        } else {
+          showResult('loginResult', result, false)
+        }
+      }
+
+      // 测试获取用户信息
+      async function testUserInfo() {
+        if (!currentToken) {
+          showResult('userInfoResult', { error: '请先登录获取 token' }, false)
+          return
+        }
+
+        const result = await makeRequest('/api/user/info')
+        showResult('userInfoResult', result.data || result, result.success)
+      }
+
+      // 测试用户列表
+      async function testUserList() {
+        const current = document.getElementById('current').value
+        const size = document.getElementById('size').value
+        const userName = document.getElementById('searchUser').value
+
+        let url = `/api/user/list?current=${current}&size=${size}`
+        if (userName) {
+          url += `&userName=${encodeURIComponent(userName)}`
+        }
+
+        const result = await makeRequest(url)
+        showResult('userListResult', result.data || result, result.success)
+      }
+
+      // 测试角色列表
+      async function testRoleList() {
+        const current = document.getElementById('roleCurrent').value
+        const size = document.getElementById('roleSize').value
+
+        const url = `/api/role/list?current=${current}&size=${size}`
+        const result = await makeRequest(url)
+        showResult('roleListResult', result.data || result, result.success)
+      }
+
+      // 测试仪表盘统计数据
+      async function testDashboardStats() {
+        const result = await makeRequest('/api/dashboard/stats')
+        showResult('dashboardResult', result.data || result, result.success)
+      }
+
+      // 测试仪表盘活动记录
+      async function testDashboardActivities() {
+        const result = await makeRequest('/api/dashboard/activities')
+        showResult('dashboardResult', result.data || result, result.success)
+      }
+
+      // 测试仪表盘待办事项
+      async function testDashboardTodos() {
+        const result = await makeRequest('/api/dashboard/todos')
+        showResult('dashboardResult', result.data || result, result.success)
+      }
+
+      // 页面加载完成后的初始化
+      document.addEventListener('DOMContentLoaded', function () {
+        console.log('Mock API 测试页面已加载')
+        console.log('可用的测试账号:')
+        console.log('- Super / 123456 (超级管理员)')
+        console.log('- Admin / 123456 (管理员)')
+        console.log('- User / 123456 (普通用户)')
+      })
+    </script>
+  </body>
+</html>
