@@ -168,7 +168,7 @@ export function generateTreeData(depth: number = 3, childrenCount: number = 3): 
     const id = parentId
       ? `${parentId}-${Random.integer(1, 999)}`
       : Random.integer(1, 999).toString()
-    const node = {
+    const node: any = {
       id,
       label: Random.ctitle(2, 6),
       value: id,

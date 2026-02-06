@@ -114,10 +114,10 @@
                 <el-card shadow="never" class="summary-card">
                   <el-row :gutter="16">
                     <el-col :span="8">
-                      <el-statistic title="合规评分" :value="currentDocResult.compliance_score" suffix="%" />
+                      <el-statistic title="合规评分" :value="currentDocResult?.compliance_score || 0" suffix="%" />
                     </el-col>
                     <el-col :span="8">
-                      <el-statistic title="问题总数" :value="currentDocResult.total_issues" />
+                      <el-statistic title="问题总数" :value="currentDocResult?.total_issues || 0" />
                     </el-col>
                     <el-col :span="8">
                       <el-statistic 
@@ -200,7 +200,7 @@
                   </template>
                   <div class="recommendation-list">
                     <div
-                      v-for="(rec, index) in currentDocResult.recommendations"
+                      v-for="(rec, index) in (currentDocResult?.recommendations || [])"
                       :key="index"
                       class="recommendation-item"
                       :class="`urgency-${rec.urgency}`"
