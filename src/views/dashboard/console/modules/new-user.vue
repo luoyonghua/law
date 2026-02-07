@@ -2,8 +2,8 @@
   <div class="art-card p-5 h-128 overflow-hidden mb-5 max-sm:mb-4">
     <div class="art-card-header">
       <div class="title">
-        <h4>新用户</h4>
-        <p>这个月增长<span class="text-success">+20%</span></p>
+        <h4>最近处理文书</h4>
+        <p>本月新增<span class="text-success">+342</span>份</p>
       </div>
       <ElRadioGroup v-model="radio2">
         <ElRadioButton value="本月" label="本月"></ElRadioButton>
@@ -21,29 +21,24 @@
       :header-cell-style="{ background: 'transparent' }"
     >
       <template #default>
-        <ElTableColumn label="头像" prop="avatar" width="150px">
+        <ElTableColumn label="案件编号" prop="caseId" width="180px" />
+        <ElTableColumn label="文书类型" prop="docType">
           <template #default="scope">
-            <div style="display: flex; align-items: center">
-              <img class="size-9 rounded-lg" :src="scope.row.avatar" alt="avatar" />
-              <span class="ml-2">{{ scope.row.username }}</span>
-            </div>
+            <ElTag :type="getDocTypeTag(scope.row.docType)">{{ scope.row.docType }}</ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="地区" prop="province" />
-        <ElTableColumn label="性别" prop="avatar">
+        <ElTableColumn label="处理状态" prop="status">
           <template #default="scope">
-            <div style="display: flex; align-items: center">
-              <span style="margin-left: 10px">{{ scope.row.sex === 1 ? '男' : '女' }}</span>
-            </div>
+            <ElTag :type="getStatusTag(scope.row.status)">{{ scope.row.status }}</ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="进度" width="240">
+        <ElTableColumn label="完成进度" width="240">
           <template #default="scope">
             <ElProgress
               :percentage="scope.row.pro"
               :color="scope.row.color"
               :stroke-width="4"
-              :aria-label="`${scope.row.username}的完成进度: ${scope.row.pro}%`"
+              :aria-label="`${scope.row.caseId}的完成进度: ${scope.row.pro}%`"
             />
           </template>
         </ElTableColumn>
@@ -53,22 +48,13 @@
 </template>
 
 <script setup lang="ts">
-  import avatar1 from '@/assets/images/avatar/avatar1.webp'
-  import avatar2 from '@/assets/images/avatar/avatar2.webp'
-  import avatar3 from '@/assets/images/avatar/avatar3.webp'
-  import avatar4 from '@/assets/images/avatar/avatar4.webp'
-  import avatar5 from '@/assets/images/avatar/avatar5.webp'
-  import avatar6 from '@/assets/images/avatar/avatar6.webp'
-
-  interface UserTableItem {
-    username: string
-    province: string
-    sex: 0 | 1
-    age: number
+  interface DocTableItem {
+    caseId: string
+    docType: string
+    status: string
     percentage: number
     pro: number
     color: string
-    avatar: string
   }
 
   const ANIMATION_DELAY = 100
@@ -76,71 +62,86 @@
   const radio2 = ref('本月')
 
   /**
-   * 新用户表格数据
-   * 包含用户基本信息和完成进度
+   * 文书处理表格数据
+   * 包含案件编号、文书类型和处理进度
    */
-  const tableData = reactive<UserTableItem[]>([
+  const tableData = reactive<DocTableItem[]>([
     {
-      username: '中小鱼',
-      province: '北京',
-      sex: 0,
-      age: 22,
-      percentage: 60,
+      caseId: '(2024)京0105刑初256号',
+      docType: '起诉书',
+      status: '已提取',
+      percentage: 100,
       pro: 0,
-      color: 'var(--art-primary)',
-      avatar: avatar1
+      color: 'var(--art-success)'
     },
     {
-      username: '何小荷',
-      province: '深圳',
-      sex: 1,
-      age: 21,
-      percentage: 20,
+      caseId: '(2024)京0106刑初189号',
+      docType: '判决书',
+      status: '审查中',
+      percentage: 65,
       pro: 0,
-      color: 'var(--art-secondary)',
-      avatar: avatar2
+      color: 'var(--art-primary)'
     },
     {
-      username: '誶誶淰',
-      province: '上海',
-      sex: 1,
-      age: 23,
-      percentage: 60,
+      caseId: '(2024)京0108刑初342号',
+      docType: '审查报告',
+      status: '已完成',
+      percentage: 100,
       pro: 0,
-      color: 'var(--art-warning)',
-      avatar: avatar3
+      color: 'var(--art-success)'
     },
     {
-      username: '发呆草',
-      province: '长沙',
-      sex: 0,
-      age: 28,
-      percentage: 50,
+      caseId: '(2024)京0105刑初298号',
+      docType: '补充侦查报告',
+      status: '处理中',
+      percentage: 45,
       pro: 0,
-      color: 'var(--art-info)',
-      avatar: avatar4
+      color: 'var(--art-warning)'
     },
     {
-      username: '甜筒',
-      province: '浙江',
-      sex: 1,
-      age: 26,
-      percentage: 70,
+      caseId: '(2024)京0109刑初425号',
+      docType: '起诉书',
+      status: '待审查',
+      percentage: 30,
       pro: 0,
-      color: 'var(--art-error)',
-      avatar: avatar5
+      color: 'var(--art-info)'
     },
     {
-      username: '冷月呆呆',
-      province: '湖北',
-      sex: 1,
-      age: 25,
-      percentage: 90,
+      caseId: '(2024)京0107刑初567号',
+      docType: '判决书',
+      status: '已提取',
+      percentage: 100,
       pro: 0,
-      color: 'var(--art-success)',
-      avatar: avatar6
+      color: 'var(--art-success)'
     }
   ])
+
+  /**
+   * 获取文书类型标签颜色
+   */
+  const getDocTypeTag = (type: string) => {
+    const tagMap: Record<string, any> = {
+      起诉书: 'primary',
+      判决书: 'success',
+      审查报告: 'warning',
+      补充侦查报告: 'danger'
+    }
+    return tagMap[type] || ''
+  }
+
+  /**
+   * 获取状态标签颜色
+   */
+  const getStatusTag = (status: string) => {
+    const tagMap: Record<string, any> = {
+      已完成: 'success',
+      已提取: 'success',
+      审查中: 'warning',
+      处理中: 'warning',
+      待审查: 'info'
+    }
+    return tagMap[status] || 'info'
+  }
 
   /**
    * 添加进度条动画效果

@@ -12,8 +12,12 @@ const mockUsers = [
     userName: 'Super',
     password: '123456',
     userInfo: {
-      buttons: ['user:add', 'user:edit', 'user:delete', 'role:add', 'role:edit', 'role:delete'],
-      roles: ['R_SUPER'], // 超级管理员角色
+      buttons: [
+        'user:add', 'user:edit', 'user:delete', 
+        'role:add', 'role:edit', 'role:delete',
+        'upload', 'batch-extract', 'compare', 'review', 'extract', 'download'
+      ],
+      roles: ['R_SUPER'], // 超级管理员角色 - 所有功能
       userId: 1,
       userName: 'Super',
       email: 'super@example.com',
@@ -24,8 +28,12 @@ const mockUsers = [
     userName: 'Admin',
     password: '123456',
     userInfo: {
-      buttons: ['user:add', 'user:edit', 'user:delete', 'role:add', 'role:edit'],
-      roles: ['R_ADMIN'], // 管理员角色
+      buttons: [
+        'user:add', 'user:edit', 'user:delete', 
+        'role:add', 'role:edit',
+        'batch-extract', 'compare', 'review', 'extract', 'download'
+      ],
+      roles: ['R_ADMIN'], // 管理员角色 - 除上传外的所有功能
       userId: 2,
       userName: 'Admin',
       email: 'admin@example.com',
@@ -37,7 +45,7 @@ const mockUsers = [
     password: '123456',
     userInfo: {
       buttons: ['user:view'],
-      roles: ['R_USER'], // 普通用户角色
+      roles: ['R_USER'], // 普通用户角色 - 只能查看
       userId: 3,
       userName: 'User',
       email: 'user@example.com',

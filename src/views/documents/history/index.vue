@@ -18,6 +18,7 @@
             v-model="searchForm.fileName"
             placeholder="请输入文件名"
             clearable
+            style="width: 200px"
             @keyup.enter="handleSearch"
           />
         </el-form-item>
@@ -26,11 +27,12 @@
             v-model="searchForm.caseId"
             placeholder="请输入案件编号"
             clearable
+            style="width: 200px"
             @keyup.enter="handleSearch"
           />
         </el-form-item>
         <el-form-item label="文书类型">
-          <el-select v-model="searchForm.docType" placeholder="请选择" clearable>
+          <el-select v-model="searchForm.docType" placeholder="请选择" clearable style="width: 150px">
             <el-option label="全部" value="" />
             <el-option label="起诉书" value="起诉书" />
             <el-option label="判决书" value="判决书" />
@@ -73,13 +75,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleViewDetail(row)">
               查看详情
-            </el-button>
-            <el-button link type="success" size="small" @click="handleExport(row)">
-              导出
             </el-button>
           </template>
         </el-table-column>
@@ -154,12 +153,6 @@
         <div class="right-panel">
           <div class="panel-header">
             <h3>提取要素</h3>
-            <div class="header-actions">
-              <el-button size="small" type="primary" @click="handleExport(currentRecord!)">
-                <el-icon><Download /></el-icon>
-                导出要素
-              </el-button>
-            </div>
           </div>
           <div class="extracted-content">
             <el-scrollbar height="calc(100vh - 180px)">
@@ -771,11 +764,6 @@ const handleOpenNewTab = () => {
   if (!currentRecord.value) return
   const url = previewDocument(currentRecord.value.doc_id)
   window.open(url, '_blank')
-}
-
-// 导出
-const handleExport = (record: Api.Documents.ExtractionHistoryRecord) => {
-  ElMessage.info('导出功能开发中')
 }
 
 // 格式化提取方法

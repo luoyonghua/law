@@ -88,7 +88,7 @@
             <h3>审查结果</h3>
             <div class="header-actions">
               <el-select
-                v-if="reviewResult.results.length > 1"
+                v-if="reviewResult && reviewResult.results.length > 1"
                 v-model="currentDocIndex"
                 size="small"
                 style="width: 200px; margin-right: 8px"
@@ -230,36 +230,23 @@
     </div>
 
     <template #footer>
-      <div v-if="!reviewResult">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="reviewing"
-          :disabled="selectedDocs.length === 0"
-          @click="handleReview"
-        >
-          开始审查
-        </el-button>
-      </div>
-      <div v-else>
-        <el-button @click="handleReset">重新审查</el-button>
-        <el-button @click="handleClose">关闭</el-button>
-      </div>
+      <el-button @click="handleClose">关闭</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Document, InfoFilled } from '@element-plus/icons-vue'
-import { batchReviewDocuments, downloadDocument, previewDocument } from '@/api/documents'
+import { downloadDocument, previewDocument } from '@/api/documents'
 import { renderAsync } from 'docx-preview'
 import { useUserStore } from '@/store/modules/user'
 
 interface Props {
   modelValue: boolean
   selectedDocs: Api.Documents.DocumentInfo[]
+  reviewResult: Api.Documents.BatchReviewResponse | null
 }
 
 interface Emits {
@@ -276,8 +263,6 @@ const visible = computed({
 })
 
 const includeElements = ref(true)
-const reviewing = ref(false)
-const reviewResult = ref<Api.Documents.BatchReviewResponse | null>(null)
 const currentDocIndex = ref(0)
 const activeIssues = ref<number[]>([0])
 const severityFilter = ref('all')
@@ -289,14 +274,14 @@ const currentHighlightedElement = ref<HTMLElement | null>(null)
 
 // 当前文档
 const currentDoc = computed(() => {
-  if (!reviewResult.value || !props.selectedDocs.length) return null
+  if (!props.reviewResult || !props.selectedDocs.length) return null
   return props.selectedDocs[currentDocIndex.value]
 })
 
 // 当前文档审查结果
 const currentDocResult = computed(() => {
-  if (!reviewResult.value) return null
-  return reviewResult.value.results[currentDocIndex.value]
+  if (!props.reviewResult) return null
+  return props.reviewResult.results[currentDocIndex.value]
 })
 
 // 过滤后的问题
@@ -504,37 +489,20 @@ const clearHighlight = () => {
   currentHighlightedElement.value = null
 }
 
+// 监听对话框打开，加载文档预览
+watch(() => props.modelValue, async (newVal) => {
+  if (newVal && props.reviewResult && currentDoc.value) {
+    await nextTick()
+    if (isDocx(currentDoc.value) && docPreviewContainer.value) {
+      await loadDocxPreview(currentDoc.value.doc_id)
+    }
+  }
+})
+
 const handleRemoveDoc = (doc: Api.Documents.DocumentInfo) => {
   const index = props.selectedDocs.findIndex((d) => d.doc_id === doc.doc_id)
   if (index > -1) {
     props.selectedDocs.splice(index, 1)
-  }
-}
-
-const handleReview = async () => {
-  if (props.selectedDocs.length === 0) {
-    ElMessage.warning('请至少选择1份文书进行审查')
-    return
-  }
-
-  reviewing.value = true
-  try {
-    const docIds = props.selectedDocs.map((doc) => doc.doc_id)
-    const result = await batchReviewDocuments(docIds, includeElements.value)
-    reviewResult.value = result
-    currentDocIndex.value = 0
-    ElMessage.success('审查完成')
-    emit('success')
-    
-    // 加载文档预览
-    await nextTick()
-    if (currentDoc.value && isDocx(currentDoc.value) && docPreviewContainer.value) {
-      await loadDocxPreview(currentDoc.value.doc_id)
-    }
-  } catch (error) {
-    ElMessage.error('审查失败')
-  } finally {
-    reviewing.value = false
   }
 }
 
@@ -559,17 +527,14 @@ const handleExport = () => {
 }
 
 const handleReset = () => {
-  reviewResult.value = null
   currentDocIndex.value = 0
   activeIssues.value = [0]
   severityFilter.value = 'all'
 }
 
 const handleClose = () => {
-  if (!reviewing.value) {
-    handleReset()
-    visible.value = false
-  }
+  handleReset()
+  visible.value = false
 }
 
 const getSeverityType = (severity: string) => {

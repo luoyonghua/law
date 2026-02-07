@@ -2,8 +2,8 @@
   <div class="art-card h-105 p-5 mb-5 max-sm:mb-4">
     <div class="art-card-header">
       <div class="title">
-        <h4>访问量</h4>
-        <p>今年增长<span class="text-success">+15%</span></p>
+        <h4>文书处理趋势</h4>
+        <p>今年增长<span class="text-success">+22%</span></p>
       </div>
     </div>
     <ArtLineChart
@@ -18,10 +18,10 @@
 
 <script setup lang="ts">
   /**
-   * 全年访问量数据
-   * 记录每月的访问量统计
+   * 全年文书处理数据
+   * 记录每月的文书处理统计
    */
-  const data = [50, 25, 40, 20, 70, 35, 65, 30, 35, 20, 40, 44]
+  const data = [68, 72, 85, 78, 95, 88, 102, 96, 108, 98, 115, 122]
 
   /**
    * X 轴月份标签

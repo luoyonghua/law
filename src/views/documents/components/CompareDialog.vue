@@ -274,36 +274,23 @@
     </div>
 
     <template #footer>
-      <div v-if="!compareResult">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="comparing"
-          :disabled="selectedDocs.length < 2"
-          @click="handleCompare"
-        >
-          开始比对
-        </el-button>
-      </div>
-      <div v-else>
-        <el-button @click="handleReset">重新比对</el-button>
-        <el-button @click="handleClose">关闭</el-button>
-      </div>
+      <el-button @click="handleClose">关闭</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Warning, Download, Document } from '@element-plus/icons-vue'
-import { compareDocuments, downloadDocument, previewDocument } from '@/api/documents'
+import { downloadDocument, previewDocument } from '@/api/documents'
 import { renderAsync } from 'docx-preview'
 import { useUserStore } from '@/store/modules/user'
 
 interface Props {
   modelValue: boolean
   selectedDocs: Api.Documents.DocumentInfo[]
+  compareResult: Api.Documents.ComparisonResponse | null
 }
 
 interface Emits {
@@ -320,8 +307,6 @@ const visible = computed({
 })
 
 const comparisonType = ref('custom')
-const comparing = ref(false)
-const compareResult = ref<Api.Documents.ComparisonResponse | null>(null)
 const activeDifferences = ref<number[]>([0])
 
 // 文档预览相关
@@ -534,28 +519,9 @@ const clearHighlight = (docType: 'A' | 'B') => {
   highlightRef.value = null
 }
 
-const handleRemoveDoc = (doc: Api.Documents.DocumentInfo) => {
-  const index = props.selectedDocs.findIndex((d) => d.doc_id === doc.doc_id)
-  if (index > -1) {
-    props.selectedDocs.splice(index, 1)
-  }
-}
-
-const handleCompare = async () => {
-  if (props.selectedDocs.length < 2) {
-    ElMessage.warning('请至少选择2份文书进行比对')
-    return
-  }
-
-  comparing.value = true
-  try {
-    const docIds = props.selectedDocs.map((doc) => doc.doc_id)
-    const result = await compareDocuments(docIds, comparisonType.value)
-    compareResult.value = result
-    ElMessage.success('比对完成')
-    emit('success')
-    
-    // 加载文档预览
+// 监听对话框打开，加载文档预览
+watch(() => props.modelValue, async (newVal) => {
+  if (newVal && props.compareResult) {
     await nextTick()
     if (isDocx(props.selectedDocs[0]) && docAPreviewContainer.value) {
       await loadDocxPreview(props.selectedDocs[0].doc_id, docAPreviewContainer.value, true)
@@ -563,10 +529,13 @@ const handleCompare = async () => {
     if (isDocx(props.selectedDocs[1]) && docBPreviewContainer.value) {
       await loadDocxPreview(props.selectedDocs[1].doc_id, docBPreviewContainer.value, false)
     }
-  } catch (error) {
-    ElMessage.error('比对失败')
-  } finally {
-    comparing.value = false
+  }
+})
+
+const handleRemoveDoc = (doc: Api.Documents.DocumentInfo) => {
+  const index = props.selectedDocs.findIndex((d) => d.doc_id === doc.doc_id)
+  if (index > -1) {
+    props.selectedDocs.splice(index, 1)
   }
 }
 
@@ -581,15 +550,12 @@ const handleExport = () => {
 }
 
 const handleReset = () => {
-  compareResult.value = null
   activeDifferences.value = [0]
 }
 
 const handleClose = () => {
-  if (!comparing.value) {
-    handleReset()
-    visible.value = false
-  }
+  handleReset()
+  visible.value = false
 }
 
 const getSeverityType = (severity: string) => {

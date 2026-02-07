@@ -2,8 +2,8 @@
   <div class="art-card h-128 p-5 mb-5 max-sm:mb-4">
     <div class="art-card-header">
       <div class="title">
-        <h4>代办事项</h4>
-        <p>待处理<span class="text-danger">3</span></p>
+        <h4>待办事项</h4>
+        <p>待处理<span class="text-danger">4</span>项</p>
       </div>
     </div>
 
@@ -15,10 +15,10 @@
           :key="index"
         >
           <div>
-            <p class="text-sm">{{ item.username }}</p>
+            <p class="text-sm">{{ item.task }}</p>
             <p class="text-g-500 mt-1">{{ item.date }}</p>
           </div>
-          <ElCheckbox v-model="item.complate" />
+          <ElCheckbox v-model="item.complete" />
         </div>
       </ElScrollbar>
     </div>
@@ -27,45 +27,50 @@
 
 <script setup lang="ts">
   interface TodoItem {
-    username: string
+    task: string
     date: string
-    complate: boolean
+    complete: boolean
   }
 
   /**
    * 待办事项列表
-   * 记录每日工作任务及完成状态
+   * 记录文书处理相关的待办任务及完成状态
    */
   const list = reactive<TodoItem[]>([
     {
-      username: '查看今天工作内容',
+      task: '审查起诉书(2024)京0105刑初256号',
       date: '上午 09:30',
-      complate: true
+      complete: true
     },
     {
-      username: '回复邮件',
+      task: '比对判决书与起诉书',
       date: '上午 10:30',
-      complate: true
+      complete: true
     },
     {
-      username: '工作汇报整理',
+      task: '提取补充侦查报告要素',
       date: '上午 11:00',
-      complate: true
+      complete: true
     },
     {
-      username: '产品需求会议',
+      task: '审查报告质量检查',
       date: '下午 02:00',
-      complate: false
+      complete: false
     },
     {
-      username: '整理会议内容',
+      task: '批量提取本周文书',
       date: '下午 03:30',
-      complate: false
+      complete: false
     },
     {
-      username: '明天工作计划',
-      date: '下午 06:30',
-      complate: false
+      task: '整理文书比对结果',
+      date: '下午 04:30',
+      complete: false
+    },
+    {
+      task: '导出本月统计报表',
+      date: '下午 05:30',
+      complete: false
     }
   ])
 </script>

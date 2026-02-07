@@ -8,11 +8,12 @@
             v-model="searchForm.caseId"
             placeholder="请输入案件编号"
             clearable
+            style="width: 200px"
             @keyup.enter="handleSearch"
           />
         </el-form-item>
         <el-form-item label="文书类型">
-          <el-select v-model="searchForm.docType" placeholder="请选择文书类型" clearable>
+          <el-select v-model="searchForm.docType" placeholder="请选择文书类型" clearable style="width: 200px">
             <el-option label="全部" value="" />
             <el-option label="起诉书" value="起诉书" />
             <el-option label="判决书" value="判决书" />
@@ -22,7 +23,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="解析状态">
-          <el-select v-model="searchForm.parseStatus" placeholder="请选择解析状态" clearable>
+          <el-select v-model="searchForm.parseStatus" placeholder="请选择解析状态" clearable style="width: 150px">
             <el-option label="全部" value="" />
             <el-option label="已完成" value="completed" />
             <el-option label="处理中" value="processing" />
@@ -39,11 +40,12 @@
       </el-form>
 
       <div class="action-buttons">
-        <el-button type="primary" @click="handleUpload">
+        <el-button v-if="hasAuth('upload')" type="primary" @click="handleUpload">
           <el-icon><Upload /></el-icon>
           上传文书
         </el-button>
         <el-button
+          v-if="hasAuth('batch-extract')"
           type="success"
           :disabled="selectedDocs.length === 0"
           @click="handleBatchExtract"
@@ -52,6 +54,7 @@
           批量提取 ({{ selectedDocs.length }})
         </el-button>
         <el-button
+          v-if="hasAuth('compare')"
           type="warning"
           :disabled="selectedDocs.length < 2"
           @click="handleCompare"
@@ -60,6 +63,7 @@
           文书比对 ({{ selectedDocs.length }})
         </el-button>
         <el-button
+          v-if="hasAuth('review')"
           type="danger"
           :disabled="selectedDocs.length === 0"
           @click="handleReview"
@@ -100,18 +104,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" :width="getOperationColumnWidth()" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleViewDetail(row)">
               查看详情
             </el-button>
-            <el-button link type="success" size="small" @click="handleExtract(row)">
+            <el-button v-if="hasAuth('extract')" link type="success" size="small" @click="handleExtract(row)">
               结构化提取
             </el-button>
-            <el-button link type="warning" size="small" @click="handleSingleCompare(row)">
-              发起比对
+            <el-button v-if="hasAuth('download')" link type="warning" size="small" @click="handleDownloadDoc(row)">
+              下载
             </el-button>
-            <el-button link type="danger" size="small" @click="handleSingleReview(row)">
+            <el-button v-if="hasAuth('review')" link type="danger" size="small" @click="handleSingleReview(row)">
               文书审查
             </el-button>
           </template>
@@ -132,10 +136,14 @@
     <!-- 提取结果对话框 -->
     <ExtractDialog v-model="extractVisible" :extract-data="extractData" />
 
+    <!-- 文档预览对话框 -->
+    <DocumentPreviewDialog v-model="previewVisible" :document-info="currentDocument" />
+
     <!-- 比对对话框 -->
     <CompareDialog
       v-model="compareVisible"
       :selected-docs="selectedDocs"
+      :compare-result="compareResult"
       @success="handleCompareSuccess"
     />
 
@@ -143,6 +151,7 @@
     <ReviewDialog
       v-model="reviewVisible"
       :selected-docs="selectedDocs"
+      :review-result="reviewResult"
       @success="handleReviewSuccess"
     />
   </div>
@@ -150,14 +159,18 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import { Search, Upload, Document, Connection, DocumentChecked } from '@element-plus/icons-vue'
-import { fetchDocumentList, batchStructuredExtract } from '@/api/documents'
+import { fetchDocumentList, batchStructuredExtract, compareDocuments, batchReviewDocuments, downloadDocument } from '@/api/documents'
 import UploadDialog from '../components/UploadDialog.vue'
 import BatchExtractDialog from '../components/BatchExtractDialog.vue'
 import ExtractDialog from '../components/ExtractDialog.vue'
 import CompareDialog from '../components/CompareDialog.vue'
 import ReviewDialog from '../components/ReviewDialog.vue'
+import DocumentPreviewDialog from '../components/DocumentPreviewDialog.vue'
+import { useAuth } from '@/hooks/core/useAuth'
+
+const { hasAuth } = useAuth()
 
 // 搜索表单
 const searchForm = ref({
@@ -177,7 +190,11 @@ const batchExtractVisible = ref(false)
 const extractVisible = ref(false)
 const compareVisible = ref(false)
 const reviewVisible = ref(false)
+const previewVisible = ref(false)
 const extractData = ref<Api.Documents.ExtractionResult | null>(null)
+const compareResult = ref<Api.Documents.ComparisonResponse | null>(null)
+const reviewResult = ref<Api.Documents.BatchReviewResponse | null>(null)
+const currentDocument = ref<Api.Documents.DocumentInfo | null>(null)
 
 // 过滤后的文档列表
 const filteredDocuments = computed(() => {
@@ -248,14 +265,29 @@ const handleBatchExtract = () => {
 
 // 单个提取
 const handleExtract = async (row: Api.Documents.DocumentInfo) => {
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行结构化提取，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
   try {
     const response = await batchStructuredExtract([row.doc_id])
     if (response.results && response.results.length > 0) {
-      extractData.value = response.results[0]
+      const result = response.results[0]
+      // 确保 file_name 存在，如果不存在则使用 row 中的信息
+      if (!result.file_name) {
+        result.file_name = row.file_name
+      }
+      extractData.value = result
       extractVisible.value = true
+      ElMessage.success('提取完成')
     }
   } catch (error) {
     ElMessage.error('提取失败')
+  } finally {
+    loading.close()
   }
 }
 
@@ -265,18 +297,30 @@ const handleExtractSuccess = () => {
 }
 
 // 比对
-const handleCompare = () => {
+const handleCompare = async () => {
   if (selectedDocs.value.length < 2) {
     ElMessage.warning('请至少选择2份文书进行比对')
     return
   }
-  compareVisible.value = true
-}
-
-// 单个比对
-const handleSingleCompare = (row: Api.Documents.DocumentInfo) => {
-  selectedDocs.value = [row]
-  compareVisible.value = true
+  
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行文书比对，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
+  try {
+    const docIds = selectedDocs.value.map((doc) => doc.doc_id)
+    const result = await compareDocuments(docIds, 'custom')
+    compareResult.value = result
+    compareVisible.value = true
+    ElMessage.success('比对完成')
+  } catch (error) {
+    ElMessage.error('比对失败')
+  } finally {
+    loading.close()
+  }
 }
 
 // 比对成功
@@ -285,18 +329,53 @@ const handleCompareSuccess = () => {
 }
 
 // 审查
-const handleReview = () => {
+const handleReview = async () => {
   if (selectedDocs.value.length === 0) {
     ElMessage.warning('请至少选择1份文书进行审查')
     return
   }
-  reviewVisible.value = true
+  
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行文书审查，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
+  try {
+    const docIds = selectedDocs.value.map((doc) => doc.doc_id)
+    const result = await batchReviewDocuments(docIds, true)
+    reviewResult.value = result
+    reviewVisible.value = true
+    ElMessage.success('审查完成')
+  } catch (error) {
+    ElMessage.error('审查失败')
+  } finally {
+    loading.close()
+  }
 }
 
 // 单个审查
-const handleSingleReview = (row: Api.Documents.DocumentInfo) => {
+const handleSingleReview = async (row: Api.Documents.DocumentInfo) => {
   selectedDocs.value = [row]
-  reviewVisible.value = true
+  
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行文书审查，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
+  try {
+    const result = await batchReviewDocuments([row.doc_id], true)
+    reviewResult.value = result
+    reviewVisible.value = true
+    ElMessage.success('审查完成')
+  } catch (error) {
+    ElMessage.error('审查失败')
+  } finally {
+    loading.close()
+  }
 }
 
 // 审查成功
@@ -306,7 +385,15 @@ const handleReviewSuccess = () => {
 
 // 查看详情
 const handleViewDetail = (row: Api.Documents.DocumentInfo) => {
-  ElMessage.info('详情功能开发中')
+  currentDocument.value = row
+  previewVisible.value = true
+}
+
+// 下载文档
+const handleDownloadDoc = (row: Api.Documents.DocumentInfo) => {
+  const url = downloadDocument(row.doc_id)
+  window.open(url, '_blank')
+  ElMessage.success('开始下载')
 }
 
 // 获取文书类型标签
@@ -346,6 +433,17 @@ const formatFileSize = (size: number) => {
   if (size < 1024) return size + ' B'
   if (size < 1024 * 1024) return (size / 1024).toFixed(2) + ' KB'
   return (size / (1024 * 1024)).toFixed(2) + ' MB'
+}
+
+// 动态计算操作列宽度
+const getOperationColumnWidth = () => {
+  let buttonCount = 1 // 查看详情始终显示
+  if (hasAuth('extract')) buttonCount++
+  if (hasAuth('download')) buttonCount++
+  if (hasAuth('review')) buttonCount++
+  
+  // 每个按钮约 80px，加上边距
+  return buttonCount * 80 + 20
 }
 
 onMounted(() => {

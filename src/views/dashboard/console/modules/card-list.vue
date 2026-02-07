@@ -5,7 +5,7 @@
         <span class="text-g-700 text-sm">{{ item.des }}</span>
         <ArtCountTo class="text-[26px] font-medium mt-2" :target="item.num" :duration="1300" />
         <div class="flex-c mt-1">
-          <span class="text-xs text-g-600">较上周</span>
+          <span class="text-xs text-g-600">较上月</span>
           <span
             class="ml-1 text-xs font-semibold"
             :class="[item.change.indexOf('+') === -1 ? 'text-danger' : 'text-success']"
@@ -35,40 +35,40 @@
 
   /**
    * 卡片统计数据列表
-   * 展示总访问次数、在线访客数、点击量和新用户等核心数据指标
+   * 展示文书总数、待审查文书、本月提取数和比对次数等核心数据指标
    */
   const dataList = reactive<CardDataItem[]>([
     {
-      des: '总访问次数',
-      icon: 'ri:pie-chart-line',
+      des: '文书总数',
+      icon: 'ri:file-text-line',
       startVal: 0,
       duration: 1000,
-      num: 9120,
-      change: '+20%'
+      num: 1248,
+      change: '+18%'
     },
     {
-      des: '在线访客数',
-      icon: 'ri:group-line',
+      des: '待审查文书',
+      icon: 'ri:file-warning-line',
       startVal: 0,
       duration: 1000,
-      num: 182,
-      change: '+10%'
-    },
-    {
-      des: '点击量',
-      icon: 'ri:fire-line',
-      startVal: 0,
-      duration: 1000,
-      num: 9520,
+      num: 86,
       change: '-12%'
     },
     {
-      des: '新用户',
-      icon: 'ri:progress-2-line',
+      des: '本月提取数',
+      icon: 'ri:file-search-line',
       startVal: 0,
       duration: 1000,
-      num: 156,
-      change: '+30%'
+      num: 342,
+      change: '+25%'
+    },
+    {
+      des: '比对次数',
+      icon: 'ri:file-copy-2-line',
+      startVal: 0,
+      duration: 1000,
+      num: 128,
+      change: '+15%'
     }
   ])
 </script>

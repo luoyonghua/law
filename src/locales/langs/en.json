@@ -129,10 +129,10 @@
   },
   "login": {
     "leftView": {
-      "title": "A backend system of beauty and efficiency",
-      "subTitle": "A sleek and practical interface for a great user experience"
+      "title": "Document Review and Comparison System",
+      "subTitle": "AI-powered intelligent document review and comparison platform"
     },
-    "title": "Welcome back",
+    "title": "Welcome",
     "subTitle": "Please enter your account and password to login",
     "roles": {
       "super": "Super Admin",
@@ -246,8 +246,6 @@
     "documents": {
       "title": "Document Management",
       "list": "Document List",
-      "extract": "Batch Extract",
-      "compare": "Document Compare",
       "history": "Extraction History"
     }
   },

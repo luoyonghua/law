@@ -129,10 +129,10 @@
   },
   "login": {
     "leftView": {
-      "title": "一款兼具设计美学与高效开发的后台系统",
-      "subTitle": "美观实用的界面，经过视觉优化，确保卓越的用户体验"
+      "title": "文书审查比对系统",
+      "subTitle": "基于 AI 的智能文书审查与比对平台"
     },
-    "title": "欢迎回来",
+    "title": "欢迎登录",
     "subTitle": "输入您的账号和密码登录",
     "roles": {
       "super": "超级管理员",
@@ -246,8 +246,6 @@
     "documents": {
       "title": "文书管理",
       "list": "文书列表",
-      "extract": "批量提取",
-      "compare": "文书比对",
       "history": "提取历史"
     }
   },

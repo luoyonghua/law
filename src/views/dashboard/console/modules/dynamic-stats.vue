@@ -2,8 +2,8 @@
   <div class="art-card h-128 p-5 mb-5 max-sm:mb-4">
     <div class="art-card-header">
       <div class="title">
-        <h4>动态</h4>
-        <p>新增<span class="text-success">+6</span></p>
+        <h4>系统动态</h4>
+        <p>今日新增<span class="text-success">+12</span>条</p>
       </div>
     </div>
 
@@ -31,49 +31,49 @@
   }
 
   /**
-   * 用户动态列表
-   * 记录用户的关注、发文、提问、兑换等各类活动
+   * 系统动态列表
+   * 记录文书处理、审查、比对等各类操作活动
    */
   const list = reactive<DynamicItem[]>([
     {
-      username: '中小鱼',
-      type: '关注了',
-      target: '誶誶淰'
+      username: '张检察官',
+      type: '提取了文书',
+      target: '(2024)京0105刑初256号'
     },
     {
-      username: '何小荷',
-      type: '发表文章',
-      target: 'Vue3 + Typescript + Vite 项目实战笔记'
+      username: '李检察官',
+      type: '完成审查',
+      target: '(2024)京0106刑初189号'
     },
     {
-      username: '中小鱼',
-      type: '关注了',
-      target: '誶誶淰'
+      username: '王检察官',
+      type: '发起比对',
+      target: '起诉书与判决书'
     },
     {
-      username: '何小荷',
-      type: '发表文章',
-      target: 'Vue3 + Typescript + Vite 项目实战笔记'
+      username: '赵检察官',
+      type: '上传文书',
+      target: '补充侦查报告'
     },
     {
-      username: '誶誶淰',
-      type: '提出问题',
-      target: '主题可以配置吗'
+      username: '刘检察官',
+      type: '提取了文书',
+      target: '(2024)京0108刑初342号'
     },
     {
-      username: '发呆草',
-      type: '兑换了物品',
-      target: '《奇特的一生》'
+      username: '陈检察官',
+      type: '完成审查',
+      target: '(2024)京0105刑初298号'
     },
     {
-      username: '甜筒',
-      type: '关闭了问题',
-      target: '发呆草'
+      username: '杨检察官',
+      type: '下载文书',
+      target: '(2024)京0109刑初425号'
     },
     {
-      username: '冷月呆呆',
-      type: '兑换了物品',
-      target: '《高效人士的七个习惯》'
+      username: '周检察官',
+      type: '发起比对',
+      target: '审查报告与起诉书'
     }
   ])
 </script>
