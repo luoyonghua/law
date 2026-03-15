@@ -37,8 +37,14 @@ const documentAxiosInstance = axios.create({
   validateStatus: (status) => status >= 200 && status < 300,
   transformResponse: [
     (data, headers) => {
-      const contentType = headers['content-type']
-      if (contentType?.includes('application/json')) {
+      // 如果是 blob 响应，不做转换
+      if (headers['content-type']?.includes('application/octet-stream') ||
+          headers['content-type']?.includes('application/vnd.openxmlformats') ||
+          headers['content-type']?.includes('application/vnd.ms-excel')) {
+        return data
+      }
+      // 尝试解析 JSON（无论 content-type 如何）
+      if (typeof data === 'string') {
         try {
           return JSON.parse(data)
         } catch {
@@ -72,8 +78,13 @@ documentAxiosInstance.interceptors.request.use(
 /** 响应拦截器 */
 documentAxiosInstance.interceptors.response.use(
   (response: AxiosResponse<BaseResponse>) => {
-    const { code, msg } = response.data
-    if (code === ApiStatus.success || code === 200) return response
+    // 如果是 blob 响应，直接返回
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+    
+    const { code, msg, success } = response.data as any
+    if (code === ApiStatus.success || code === 200 || success === true) return response
     if (code === ApiStatus.unauthorized) handleUnauthorizedError(msg)
     throw createHttpError(msg || $t('httpMsg.requestFailed'), code)
   },
@@ -165,6 +176,11 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
 
   try {
     const res = await documentAxiosInstance.request<BaseResponse<T>>(config)
+
+    // 如果是 blob 响应，直接返回 blob 数据
+    if (config.responseType === 'blob') {
+      return res.data as T
+    }
 
     // 显示成功消息
     if (config.showSuccessMessage && res.data.msg) {

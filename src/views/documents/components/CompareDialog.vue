@@ -139,21 +139,30 @@
                 <el-card shadow="never" class="summary-card">
                   <el-row :gutter="16">
                     <el-col :span="12">
-                      <el-statistic title="相似度" :value="compareResult.match_rate * 100" suffix="%" />
+                      <el-statistic title="相符合度" :value="Math.round((compareResult.match_rate || 0) * 100)" suffix="%" />
                     </el-col>
                     <el-col :span="12">
-                      <el-statistic title="差异项" :value="compareResult.differences.length" />
+                      <el-statistic title="差异项" :value="compareResult.total_differences ?? compareResult.differences.length" />
                     </el-col>
-                    <el-col :span="12">
+                    <el-col :span="8">
                       <el-statistic
-                        title="高危差异"
-                        :value="compareResult.detailed_result.summary.high_severity_count"
+                        title="严重"
+                        :value="compareResult.severity_breakdown?.['严重'] ?? 0"
+                        :value-style="{ color: '#f56c6c' }"
                       />
                     </el-col>
-                    <el-col :span="12">
+                    <el-col :span="8">
                       <el-statistic
-                        title="中危差异"
-                        :value="compareResult.detailed_result.summary.medium_severity_count"
+                        title="中等"
+                        :value="compareResult.severity_breakdown?.['中等'] ?? 0"
+                        :value-style="{ color: '#e6a23c' }"
+                      />
+                    </el-col>
+                    <el-col :span="8">
+                      <el-statistic
+                        title="轻微"
+                        :value="compareResult.severity_breakdown?.['轻微'] ?? 0"
+                        :value-style="{ color: '#67c23a' }"
                       />
                     </el-col>
                   </el-row>
@@ -162,109 +171,105 @@
                 <!-- 总结 -->
                 <el-card shadow="never" class="summary-text-card">
                   <template #header>
-                    <span class="card-title">比对总结</span>
+                    <div class="card-header-content">
+                      <span class="card-title">比对总结</span>
+                      <el-tag v-if="compareResult.consistency_level" :type="getSummaryType(compareResult.consistency_level)">
+                        {{ compareResult.consistency_level }}
+                      </el-tag>
+                    </div>
                   </template>
-                  <el-alert
-                    :title="compareResult.detailed_result.summary.overall_consistency"
-                    :type="getSummaryType(compareResult.detailed_result.summary.overall_consistency)"
-                    :closable="false"
-                  >
-                    <p>{{ compareResult.detailed_result.summary.conclusion }}</p>
-                  </el-alert>
+                  <p style="white-space: pre-wrap; line-height: 1.8; font-size: 13px">{{ compareResult.summary }}</p>
                 </el-card>
 
-                <!-- 主要风险 -->
-                <el-card shadow="never" class="risks-card">
+                <!-- 规则检查结果 -->
+                <el-card v-if="compareResult.checked_rules?.length" shadow="never" class="rules-card">
                   <template #header>
-                    <span class="card-title">主要风险</span>
+                    <div class="card-header-content">
+                      <span class="card-title">规则检查结果 ({{ compareResult.checked_rules.length }})</span>
+                      <div class="rule-stats">
+                        <el-tag type="success" size="small">通过: {{ compareResult.checked_rules.filter(r => r.status === 'passed').length }}</el-tag>
+                        <el-tag type="danger" size="small">未通过: {{ compareResult.checked_rules.filter(r => r.status === 'failed').length }}</el-tag>
+                      </div>
+                    </div>
                   </template>
-                  <ul class="risk-list">
-                    <li
-                      v-for="(risk, index) in compareResult.detailed_result.summary.main_risks"
+                  <div class="rules-list">
+                    <div
+                      v-for="(rule, index) in compareResult.checked_rules"
                       :key="index"
+                      class="rule-item"
+                      :class="`status-${rule.status}`"
                     >
-                      <el-icon color="#f56c6c"><Warning /></el-icon>
-                      {{ risk }}
-                    </li>
-                  </ul>
+                      <div class="rule-header">
+                        <div class="rule-title">
+                          <el-icon :size="16" :color="rule.status === 'passed' ? '#67c23a' : '#f56c6c'">
+                            <component :is="rule.status === 'passed' ? 'CircleCheck' : 'CircleClose'" />
+                          </el-icon>
+                          <span class="rule-name">{{ rule.name }}</span>
+                          <el-tag size="small" type="info">{{ rule.code }}</el-tag>
+                        </div>
+                        <el-tag :type="rule.status === 'passed' ? 'success' : 'danger'" size="small">
+                          {{ rule.status === 'passed' ? '通过' : `未通过 (${rule.differences_count})` }}
+                        </el-tag>
+                      </div>
+                      <div class="rule-meta">
+                        <el-tag size="small" effect="plain">{{ rule.category }}</el-tag>
+                      </div>
+                    </div>
+                  </div>
                 </el-card>
 
                 <!-- 差异详情 -->
                 <el-card shadow="never" class="differences-card">
                   <template #header>
-                    <span class="card-title">差异详情</span>
+                    <span class="card-title">差异详情 ({{ (compareResult.differences as any[]).length }})</span>
                   </template>
                   <el-collapse v-model="activeDifferences">
                     <el-collapse-item
-                      v-for="(diff, index) in compareResult.detailed_result.fact_differences"
+                      v-for="(diff, index) in (compareResult.differences as any[])"
                       :key="index"
                       :name="index"
                     >
                       <template #title>
                         <div class="diff-title">
-                          <el-tag :type="getSeverityType(diff.severity)" size="small">
-                            {{ diff.severity }}
-                          </el-tag>
-                          <span class="diff-category">{{ diff.category }}</span>
+                          <el-tag :type="getSeverityType(diff.severity)" size="small">{{ diff.severity }}</el-tag>
+                          <span class="diff-category">{{ diff.category || diff.element }}</span>
+                          <span v-if="diff.item" class="diff-item">· {{ diff.item }}</span>
                         </div>
                       </template>
 
                       <div class="diff-content">
                         <div class="diff-section">
                           <h4>文档A内容：</h4>
-                          <div class="diff-text doc-a clickable-text" @click="highlightInDoc('A', diff.text_in_doc_A)">
-                            {{ diff.text_in_doc_A }}
+                          <div class="diff-text doc-a clickable-text" @click="highlightInDoc('A', diff.doc_a_content || diff.doc_a_value || diff.text_in_doc_A)">
+                            {{ diff.doc_a_content || diff.doc_a_value || diff.text_in_doc_A }}
                           </div>
                         </div>
-
                         <div class="diff-section">
                           <h4>文档B内容：</h4>
-                          <div class="diff-text doc-b clickable-text" @click="highlightInDoc('B', diff.text_in_doc_B)">
-                            {{ diff.text_in_doc_B }}
+                          <div class="diff-text doc-b clickable-text" @click="highlightInDoc('B', diff.doc_b_content || diff.doc_b_value || diff.text_in_doc_B)">
+                            {{ diff.doc_b_content || diff.doc_b_value || diff.text_in_doc_B }}
                           </div>
                         </div>
-
                         <el-divider />
-
                         <div class="diff-section">
                           <h4>差异分析：</h4>
-                          <p>{{ diff.analysis }}</p>
+                          <p>{{ diff.analysis || diff.description }}</p>
                         </div>
-
-                        <div class="diff-section">
+                        <div v-if="diff.reason || diff.possible_reason" class="diff-section">
                           <h4>可能原因：</h4>
-                          <p>{{ diff.possible_reason }}</p>
+                          <p>{{ diff.reason || diff.possible_reason }}</p>
                         </div>
-
-                        <div class="diff-section">
-                          <h4>风险评估：</h4>
-                          <el-alert :type="getSeverityType(diff.severity)" :closable="false">
-                            {{ diff.risk_assessment }}
-                          </el-alert>
+                        <div v-if="diff.difference_type" class="diff-section">
+                          <h4>差异类型：</h4>
+                          <el-tag size="small">{{ diff.difference_type }}</el-tag>
                         </div>
-
-                        <div class="diff-section">
+                        <div v-if="diff.suggestion || diff.risk_assessment" class="diff-section">
                           <h4>处理建议：</h4>
-                          <p class="suggestion">{{ diff.suggestion }}</p>
+                          <p class="suggestion">{{ diff.suggestion || diff.risk_assessment }}</p>
                         </div>
                       </div>
                     </el-collapse-item>
                   </el-collapse>
-                </el-card>
-
-                <!-- 处理建议 -->
-                <el-card shadow="never" class="recommendations-card">
-                  <template #header>
-                    <span class="card-title">处理建议</span>
-                  </template>
-                  <ol class="recommendation-list">
-                    <li
-                      v-for="(rec, index) in compareResult.detailed_result.summary.recommendations"
-                      :key="index"
-                    >
-                      {{ rec }}
-                    </li>
-                  </ol>
                 </el-card>
               </div>
             </el-scrollbar>
@@ -274,16 +279,20 @@
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
+      <el-button v-if="!compareResult" @click="handleClose">取消</el-button>
+      <el-button v-if="!compareResult" type="primary" :loading="comparing" @click="handleStartCompare">
+        开始对比
+      </el-button>
+      <el-button v-else @click="handleClose">关闭</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Warning, Download, Document } from '@element-plus/icons-vue'
-import { downloadDocument, previewDocument } from '@/api/documents'
+import { ElMessage, ElLoading } from 'element-plus'
+import { Warning, Download, Document, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { downloadDocument, previewDocument, compareDocuments, unifiedCompare } from '@/api/documents'
 import { renderAsync } from 'docx-preview'
 import { useUserStore } from '@/store/modules/user'
 
@@ -295,7 +304,8 @@ interface Props {
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'success'): void
+  (e: 'success', result: Api.Documents.ComparisonResponse): void
+  (e: 'clear'): void
 }
 
 const props = defineProps<Props>()
@@ -308,6 +318,7 @@ const visible = computed({
 
 const comparisonType = ref('custom')
 const activeDifferences = ref<number[]>([0])
+const comparing = ref(false)
 
 // 文档预览相关
 const docAPreviewContainer = ref<HTMLElement | null>(null)
@@ -549,13 +560,78 @@ const handleExport = () => {
   ElMessage.info('导出功能开发中')
 }
 
+const handleStartCompare = async () => {
+  if (props.selectedDocs.length < 2) {
+    ElMessage.warning('请至少选择2份文书进行对比')
+    return
+  }
+  
+  comparing.value = true
+  
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行文书对比，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
+  try {
+    const docA = props.selectedDocs[0]
+    const docB = props.selectedDocs[1]
+    const res = await unifiedCompare({ doc_id_a: docA.doc_id, doc_id_b: docB.doc_id })
+
+    // 将一体化响应直接映射为 ComparisonResponse
+    const result: Api.Documents.ComparisonResponse = {
+      comparison_id: res.comparison.comparison_id || '',
+      doc_ids: [docA.doc_id, docB.doc_id],
+      total_elements: res.comparison.rules_count ?? 0,
+      matched_count: 0,
+      match_rate: res.comparison.match_rate,
+      differences: res.comparison.differences as Api.Documents.RuleBasedDifference[],
+      summary: res.comparison.summary,
+      created_at: res.comparison.created_at || new Date().toISOString(),
+      comparison_method: res.comparison.comparison_method || 'unified',
+      detailed_result: res.comparison.detailed_result as any,
+      comparison_stage: res.comparison.comparison_stage,
+      rules_count: res.comparison.rules_count,
+      total_differences: res.comparison.total_differences,
+      severity_breakdown: res.comparison.severity_breakdown,
+      consistency_level: res.comparison.consistency_level,
+      checked_rules: res.comparison.checked_rules
+    }
+    
+    // 通过 emit 传递结果给父组件
+    emit('success', result)
+    ElMessage.success('对比完成')
+    
+    // 对比完成后，等待 DOM 更新，然后加载文档预览
+    await nextTick()
+    if (isDocx(props.selectedDocs[0]) && docAPreviewContainer.value) {
+      await loadDocxPreview(props.selectedDocs[0].doc_id, docAPreviewContainer.value, true)
+    }
+    if (isDocx(props.selectedDocs[1]) && docBPreviewContainer.value) {
+      await loadDocxPreview(props.selectedDocs[1].doc_id, docBPreviewContainer.value, false)
+    }
+  } catch (error: any) {
+    console.error('对比失败:', error)
+    ElMessage.error(error?.message || '对比失败')
+  } finally {
+    comparing.value = false
+    loading.close()
+  }
+}
+
 const handleReset = () => {
   activeDifferences.value = [0]
+  comparisonType.value = 'custom'
+  comparing.value = false
 }
 
 const handleClose = () => {
   handleReset()
   visible.value = false
+  // 清空对比结果，确保下次打开是新的对比
+  emit('clear')
 }
 
 const getSeverityType = (severity: string) => {
@@ -567,8 +643,8 @@ const getSeverityType = (severity: string) => {
   return typeMap[severity] || 'info'
 }
 
-const getSummaryType = (consistency: string) => {
-  if (consistency.includes('严重')) return 'error'
+const getSummaryType = (consistency: string): 'danger' | 'warning' | 'success' => {
+  if (consistency.includes('严重')) return 'danger'
   if (consistency.includes('不一致')) return 'warning'
   return 'success'
 }

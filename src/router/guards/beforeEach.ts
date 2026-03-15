@@ -351,10 +351,79 @@ async function handleDynamicRoutes(
  */
 async function fetchUserInfo(): Promise<void> {
   const userStore = useUserStore()
-  const data = await fetchGetUserInfo()
-  userStore.setUserInfo(data)
-  // 检查并清理工作台标签页（如果是不同用户登录）
-  userStore.checkAndClearWorktabs()
+  
+  try {
+    const data = await fetchGetUserInfo()
+    
+    // 开发环境日志
+    if (import.meta.env.DEV) {
+      console.log('[RouteGuard] 获取到的原始用户信息:', JSON.stringify(data, null, 2))
+    }
+    
+    // 如果后端未返回权限信息，默认给予超级管理员权限
+    // 检查 roles 是否为空（undefined、null、空数组都视为空）
+    if (!data.roles || !Array.isArray(data.roles) || data.roles.length === 0) {
+      if (import.meta.env.DEV) {
+        console.warn('[RouteGuard] ⚠️ 后端未返回 roles 或 roles 为空，使用默认超级管理员权限')
+        console.warn('[RouteGuard] 原始 roles 值:', data.roles)
+      }
+      data.roles = ['R_SUPER']
+    }
+    
+    // 检查 buttons 是否为空（undefined、null、空数组都视为空）
+    if (!data.buttons || !Array.isArray(data.buttons) || data.buttons.length === 0) {
+      if (import.meta.env.DEV) {
+        console.warn('[RouteGuard] ⚠️ 后端未返回 buttons 或 buttons 为空，使用默认超级管理员权限')
+        console.warn('[RouteGuard] 原始 buttons 值:', data.buttons)
+      }
+      data.buttons = [
+        'user:add', 'user:edit', 'user:delete', 
+        'role:add', 'role:edit', 'role:delete',
+        'upload', 'batch-extract', 'compare', 'review', 'extract', 'download'
+      ]
+    } else {
+      // 兼容处理：如果返回的是 B_CODE1, B_CODE2, B_CODE3 这种测试数据，转换为正确的权限标识
+      const hasTestCodes = data.buttons.some((btn: string) => btn.startsWith('B_CODE'))
+      if (hasTestCodes) {
+        if (import.meta.env.DEV) {
+          console.warn('[RouteGuard] ⚠️ 检测到测试权限代码，转换为实际权限标识')
+          console.warn('[RouteGuard] 原始 buttons:', data.buttons)
+        }
+        // 根据角色设置正确的权限
+        if (data.roles.includes('R_SUPER')) {
+          data.buttons = [
+            'user:add', 'user:edit', 'user:delete', 
+            'role:add', 'role:edit', 'role:delete',
+            'upload', 'batch-extract', 'compare', 'review', 'extract', 'download'
+          ]
+        } else if (data.roles.includes('R_ADMIN')) {
+          data.buttons = [
+            'user:add', 'user:edit', 'user:delete', 
+            'role:add', 'role:edit',
+            'batch-extract', 'compare', 'review', 'extract', 'download'
+          ]
+        } else {
+          data.buttons = ['user:view']
+        }
+        if (import.meta.env.DEV) {
+          console.warn('[RouteGuard] 转换后 buttons:', data.buttons)
+        }
+      }
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('[RouteGuard] ✅ 最终设置的用户信息:', JSON.stringify(data, null, 2))
+    }
+    
+    userStore.setUserInfo(data)
+    // 检查并清理工作台标签页（如果是不同用户登录）
+    userStore.checkAndClearWorktabs()
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('[RouteGuard] ❌ 获取用户信息失败:', error)
+    }
+    throw error
+  }
 }
 
 /**

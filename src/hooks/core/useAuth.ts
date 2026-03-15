@@ -61,11 +61,27 @@ export const useAuth = () => {
   const hasAuth = (auth: string): boolean => {
     // 前端模式
     if (isFrontendMode.value) {
-      return frontendAuthList.includes(auth)
+      const hasPermission = frontendAuthList.includes(auth)
+      // 仅在开发环境输出日志
+      if (import.meta.env.DEV) {
+        console.log(`[useAuth] 检查权限 "${auth}":`, {
+          hasPermission,
+          frontendAuthList,
+          userInfo: info.value
+        })
+      }
+      return hasPermission
     }
 
     // 后端模式
-    return backendAuthList.some((item) => item?.authMark === auth)
+    const hasPermission = backendAuthList.some((item) => item?.authMark === auth)
+    if (import.meta.env.DEV) {
+      console.log(`[useAuth] 检查权限 "${auth}" (后端模式):`, {
+        hasPermission,
+        backendAuthList
+      })
+    }
+    return hasPermission
   }
 
   return {

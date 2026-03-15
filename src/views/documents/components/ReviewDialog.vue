@@ -40,6 +40,30 @@
         <el-divider />
 
         <div class="config-section">
+          <h3>审查方式</h3>
+          <el-radio-group v-model="reviewMethod">
+            <el-radio value="logic">逻辑审查（按文书类型）</el-radio>
+            <el-radio value="rule">规则库审查（使用规则引擎）</el-radio>
+          </el-radio-group>
+          <el-alert
+            v-if="reviewMethod === 'logic'"
+            title="逻辑审查：基于文书类型进行智能审查，检查结构完整性、事实叙述、证据列举等"
+            type="info"
+            :closable="false"
+            style="margin-top: 12px"
+          />
+          <el-alert
+            v-else
+            title="规则库审查：使用预定义规则进行专业审查，返回详细的规则违反信息"
+            type="info"
+            :closable="false"
+            style="margin-top: 12px"
+          />
+        </div>
+
+        <el-divider />
+
+        <div v-if="reviewMethod === 'logic'" class="config-section">
           <h3>审查选项</h3>
           <el-checkbox v-model="includeElements" label="包含要素提取" />
         </div>
@@ -127,6 +151,50 @@
                       />
                     </el-col>
                   </el-row>
+                </el-card>
+
+                <!-- 规则检查结果 -->
+                <el-card v-if="currentDocResult?.checked_rules && currentDocResult.checked_rules.length > 0" shadow="never" class="rules-card">
+                  <template #header>
+                    <div class="card-header-content">
+                      <span class="card-title">规则检查结果 ({{ currentDocResult.checked_rules.length }})</span>
+                      <div class="rule-stats">
+                        <el-tag type="success" size="small">
+                          通过: {{ passedRulesCount }}
+                        </el-tag>
+                        <el-tag type="danger" size="small">
+                          未通过: {{ failedRulesCount }}
+                        </el-tag>
+                      </div>
+                    </div>
+                  </template>
+                  <div class="rules-list">
+                    <div
+                      v-for="(rule, index) in currentDocResult.checked_rules"
+                      :key="index"
+                      class="rule-item"
+                      :class="`status-${rule.status}`"
+                    >
+                      <div class="rule-header">
+                        <div class="rule-title">
+                          <el-icon :size="16" :color="rule.status === 'passed' ? '#67c23a' : '#f56c6c'">
+                            <component :is="rule.status === 'passed' ? 'CircleCheck' : 'CircleClose'" />
+                          </el-icon>
+                          <span class="rule-name">{{ rule.name }}</span>
+                          <el-tag size="small" type="info">{{ rule.code }}</el-tag>
+                        </div>
+                        <el-tag :type="rule.status === 'passed' ? 'success' : 'danger'" size="small">
+                          {{ rule.status === 'passed' ? '通过' : '未通过' }}
+                        </el-tag>
+                      </div>
+                      <div class="rule-meta">
+                        <el-tag size="small" effect="plain">{{ rule.category }}</el-tag>
+                        <el-tag :type="getSeverityType(rule.severity || '')" size="small" effect="plain">
+                          {{ rule.severity }}
+                        </el-tag>
+                      </div>
+                    </div>
+                  </div>
                 </el-card>
 
                 <!-- 问题列表 -->
@@ -230,16 +298,20 @@
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
+      <el-button v-if="!reviewResult" @click="handleClose">取消</el-button>
+      <el-button v-if="!reviewResult" type="primary" :loading="reviewing" @click="handleStartReview">
+        开始审查
+      </el-button>
+      <el-button v-else @click="handleClose">关闭</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Download, Document, InfoFilled } from '@element-plus/icons-vue'
-import { downloadDocument, previewDocument } from '@/api/documents'
+import { ElMessage, ElLoading, ElMessageBox } from 'element-plus'
+import { Download, Document, InfoFilled, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { downloadDocument, previewDocument, batchReviewDocuments, batchReviewWithRuleEngine, generateReviewReport, unifiedReview } from '@/api/documents'
 import { renderAsync } from 'docx-preview'
 import { useUserStore } from '@/store/modules/user'
 
@@ -251,7 +323,8 @@ interface Props {
 
 interface Emits {
   (e: 'update:modelValue', value: boolean): void
-  (e: 'success'): void
+  (e: 'success', result: Api.Documents.BatchReviewResponse): void
+  (e: 'clear'): void
 }
 
 const props = defineProps<Props>()
@@ -263,6 +336,8 @@ const visible = computed({
 })
 
 const includeElements = ref(true)
+const reviewMethod = ref<'logic' | 'rule'>('rule')
+const reviewing = ref(false)
 const currentDocIndex = ref(0)
 const activeIssues = ref<number[]>([0])
 const severityFilter = ref('all')
@@ -296,6 +371,17 @@ const getSeverityCount = (severity: string) => {
   if (!currentDocResult.value) return 0
   return currentDocResult.value.issues.filter(issue => issue.severity === severity).length
 }
+
+// 规则统计
+const passedRulesCount = computed(() => {
+  if (!currentDocResult.value?.checked_rules) return 0
+  return currentDocResult.value.checked_rules.filter(r => r.status === 'passed').length
+})
+
+const failedRulesCount = computed(() => {
+  if (!currentDocResult.value?.checked_rules) return 0
+  return currentDocResult.value.checked_rules.filter(r => r.status === 'failed').length
+})
 
 // 判断文件类型
 const isDocx = (doc: Api.Documents.DocumentInfo | null) => {
@@ -521,20 +607,136 @@ const handleDownloadDoc = (doc: Api.Documents.DocumentInfo | null) => {
   const url = downloadDocument(doc.doc_id)
   window.open(url, '_blank')
 }
-
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  if (!currentDoc.value || !currentDocResult.value) {
+    ElMessage.warning('没有可导出的审查结果')
+    return
+  }
+
+  // 显示格式选择对话框
+  ElMessageBox.confirm(
+    '请选择导出格式',
+    '导出审查报告',
+    {
+      distinguishCancelAndClose: true,
+      confirmButtonText: 'Word 格式',
+      cancelButtonText: 'PDF 格式',
+      type: 'info'
+    }
+  ).then(() => {
+    // 导出 Word 格式
+    downloadReport('docx')
+  }).catch((action) => {
+    if (action === 'cancel') {
+      // 导出 PDF 格式
+      downloadReport('pdf')
+    }
+  })
+}
+
+// 下载报告
+const downloadReport = (format: 'docx' | 'pdf') => {
+  if (!currentDoc.value) return
+
+  const url = generateReviewReport(currentDoc.value.doc_id, {
+    format,
+    review_id: currentDocResult.value?.review_id
+  })
+  
+  // 创建隐藏的 a 标签下载
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `审查报告_${currentDoc.value.file_name}.${format}`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  
+  ElMessage.success(`正在下载 ${format.toUpperCase()} 格式报告`)
+}
+
+const handleStartReview = async () => {
+  if (props.selectedDocs.length === 0) {
+    ElMessage.warning('请至少选择1份文书进行审查')
+    return
+  }
+  
+  reviewing.value = true
+  
+  // 显示全屏 loading
+  const loading = ElLoading.service({
+    lock: true,
+    text: '正在进行文书审查，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+  
+  try {
+    let result: Api.Documents.BatchReviewResponse
+
+    if (reviewMethod.value === 'logic') {
+      // 逻辑审查（保持原有逻辑）
+      const docIds = props.selectedDocs.map((doc) => doc.doc_id)
+      result = await batchReviewDocuments(docIds, includeElements.value)
+    } else {
+      // 规则库审查：使用一体化接口，自动处理提取
+      const reviewResults: Api.Documents.ReviewResult[] = []
+      for (const doc of props.selectedDocs) {
+        const res = await unifiedReview(doc.doc_id, { include_examples: true })
+        reviewResults.push({
+          review_id: undefined,
+          doc_id: res.doc_id,
+          file_name: res.file_name,
+          success: true,
+          doc_type: res.doc_type,
+          compliance_score: res.review.result.compliance_score,
+          total_issues: res.review.result.summary.total_issues,
+          issues: res.review.result.issues,
+          summary: String(res.review.result.summary.total_issues) + ' 个问题',
+          recommendations: res.review.result.recommendations ?? [],
+          checked_rules: res.review.result.checked_rules ?? []
+        })
+      }
+      result = {
+        batch_id: '',
+        total_documents: reviewResults.length,
+        successful_reviews: reviewResults.length,
+        failed_reviews: 0,
+        results: reviewResults,
+        batch_time: new Date().toISOString()
+      }
+    }
+    
+    // 通过 emit 传递结果给父组件
+    emit('success', result)
+    ElMessage.success('审查完成')
+    
+    // 审查完成后，等待 DOM 更新，然后加载文档预览
+    await nextTick()
+    if (currentDoc.value && isDocx(currentDoc.value) && docPreviewContainer.value) {
+      await loadDocxPreview(currentDoc.value.doc_id)
+    }
+  } catch (error: any) {
+    console.error('审查失败:', error)
+    ElMessage.error(error?.message || '审查失败')
+  } finally {
+    reviewing.value = false
+    loading.close()
+  }
 }
 
 const handleReset = () => {
   currentDocIndex.value = 0
   activeIssues.value = [0]
   severityFilter.value = 'all'
+  reviewMethod.value = 'rule'
+  includeElements.value = true
+  reviewing.value = false
 }
 
 const handleClose = () => {
   handleReset()
   visible.value = false
+  // 清空审查结果，确保下次打开是新的审查
+  emit('clear')
 }
 
 const getSeverityType = (severity: string) => {
@@ -707,6 +909,7 @@ const getSeverityType = (severity: string) => {
           padding: 16px;
 
           .summary-card,
+          .rules-card,
           .issues-card,
           .recommendations-card {
             margin-bottom: 16px;
@@ -734,6 +937,65 @@ const getSeverityType = (severity: string) => {
 
             :deep(.el-card__body) {
               padding: 14px;
+            }
+          }
+
+          .rule-stats {
+            display: flex;
+            gap: 8px;
+          }
+
+          .rules-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .rule-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #e4e7ed;
+            background: #fff;
+            transition: all 0.3s;
+
+            &:hover {
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+
+            &.status-passed {
+              border-left: 3px solid #67c23a;
+              background: #f0f9ff;
+            }
+
+            &.status-failed {
+              border-left: 3px solid #f56c6c;
+              background: #fef0f0;
+            }
+
+            .rule-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 6px;
+            }
+
+            .rule-title {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              flex: 1;
+            }
+
+            .rule-name {
+              font-size: 13px;
+              font-weight: 500;
+              color: #303133;
+            }
+
+            .rule-meta {
+              display: flex;
+              gap: 6px;
+              align-items: center;
             }
           }
 

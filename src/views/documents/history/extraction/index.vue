@@ -80,13 +80,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleViewDetail(row)">
               查看详情
-            </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">
-              删除
             </el-button>
           </template>
         </el-table-column>
@@ -395,10 +392,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Search, Refresh, Download, FullScreen, Document } from '@element-plus/icons-vue'
-import { fetchExtractionHistory, downloadDocument, previewDocument, batchDeleteExtractionRecords } from '@/api/documents'
+import { fetchExtractionHistory, downloadDocument, previewDocument } from '@/api/documents'
 import { renderAsync } from 'docx-preview'
 import { useUserStore } from '@/store/modules/user'
 
@@ -828,33 +825,6 @@ const handleOpenNewTab = () => {
   if (!currentRecord.value) return
   const url = previewDocument(currentRecord.value.doc_id)
   window.open(url, '_blank')
-}
-
-// 删除提取记录
-const handleDelete = async (row: Api.Documents.ExtractionHistoryRecord) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除"${row.file_name}"的提取记录吗？删除后将无法恢复。`,
-      '删除确认',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-        confirmButtonClass: 'el-button--danger'
-      }
-    )
-    
-    // 执行删除
-    await batchDeleteExtractionRecords([row.record_id])
-    ElMessage.success('删除成功')
-    
-    // 刷新列表
-    await getHistoryRecords()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error?.message || '删除失败')
-    }
-  }
 }
 
 // 格式化提取方法

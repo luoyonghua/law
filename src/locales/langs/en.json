@@ -246,7 +246,22 @@
     "documents": {
       "title": "Document Management",
       "list": "Document List",
-      "history": "Extraction History"
+      "history": "History",
+      "extractionHistory": "Extraction History",
+      "reviewHistory": "Review History",
+      "comparisonHistory": "Comparison History"
+    },
+    "cases": {
+      "title": "Case Management",
+      "list": "Case List",
+      "detail": "Case Detail"
+    },
+    "rules": {
+      "title": "Rule Management",
+      "list": "Rule List",
+      "testManual": "Manual Test",
+      "testDocument": "Document Test",
+      "systemPrompts": "System Prompts"
     }
   },
   "table": {

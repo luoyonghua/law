@@ -30,10 +30,30 @@ export const documentsRoutes: AppRouteRecord = {
     },
     {
       path: 'history',
-      name: 'DocumentHistory',
+      name: 'ExtractionHistory',
       component: '/documents/history',
       meta: {
-        title: 'menus.documents.history',
+        title: 'menus.documents.extractionHistory',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_USER']
+      }
+    },
+    {
+      path: 'review-history',
+      name: 'ReviewHistory',
+      component: '/documents/review-history',
+      meta: {
+        title: 'menus.documents.reviewHistory',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_USER']
+      }
+    },
+    {
+      path: 'comparison-history',
+      name: 'ComparisonHistory',
+      component: '/documents/comparison-history',
+      meta: {
+        title: 'menus.documents.comparisonHistory',
         keepAlive: true,
         roles: ['R_SUPER', 'R_ADMIN', 'R_USER']
       }

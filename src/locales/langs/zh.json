@@ -246,7 +246,23 @@
     "documents": {
       "title": "文书管理",
       "list": "文书列表",
-      "history": "提取历史"
+      "history": "历史记录",
+      "extractionHistory": "提取历史",
+      "reviewHistory": "审查历史",
+      "comparisonHistory": "对比历史"
+    },
+    "cases": {
+      "title": "案件管理",
+      "list": "案件列表",
+      "detail": "案件详情"
+    },
+    "rules": {
+      "title": "规则管理",
+      "list": "规则列表",
+      "comparisonRules": "对比规则列表",
+      "testManual": "手动测试规则",
+      "testDocument": "文档测试规则",
+      "systemPrompts": "系统提示词"
     }
   },
   "table": {
